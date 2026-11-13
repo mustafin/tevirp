@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ТЕВИРП — голосовые задом наперёд</title>
+<style>
+  :root {
+    --bg: #14121c; --panel: #1f1c2b; --panel2: #2a2639; --line: #3a3550;
+    --text: #f2eefc; --dim: #9d96b5; --accent: #ffd23f; --accent-ink: #1b1600;
+    --mine: #5b3df5; --rec: #ff4d6d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; border: 0; border-radius: 12px; padding: 12px 16px; background: var(--panel2); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+  input, textarea {
+    width: 100%; background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px; outline: none;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  .hidden { display: none !important; }
+  .dim { color: var(--dim); }
+  .logo { font-weight: 900; letter-spacing: .08em; }
+  .logo span { display: inline-block; transform: scaleX(-1); color: var(--accent); }
+
+  /* лобби */
+  #lobby { width: 100%; max-width: 420px; padding: 24px 16px; align-self: center; }
+  #lobby h1 { font-size: 44px; margin: 0 0 4px; }
+  #lobby p { margin: 0 0 24px; }
+  #lobby label { display: block; font-size: 13px; color: var(--dim); margin: 16px 0 6px; }
+  #lobby .row { display: flex; gap: 8px; }
+  #lobby .row input { text-transform: uppercase; letter-spacing: .15em; }
+  #lobby button { width: 100%; margin-top: 12px; }
+  #lobby .row button { width: auto; margin: 0; white-space: nowrap; }
+  .or { text-align: center; color: var(--dim); font-size: 13px; margin: 16px 0 0; }
+
+  /* комната */
+  #room { width: 100%; max-width: 560px; height: 100dvh; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  header .logo { font-size: 18px; }
+  #code { margin-left: auto; font-weight: 700; letter-spacing: .15em; padding: 8px 12px; font-size: 14px; }
+  #players { padding: 8px 16px; font-size: 13px; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .chip { background: var(--panel); border-radius: 99px; padding: 3px 10px; color: var(--text); }
+  .chip.me { outline: 1px solid var(--line); }
+
+  #feed { flex: 1; overflow-y: auto; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+  #empty { margin: auto; text-align: center; color: var(--dim); max-width: 300px; }
+  .msg { max-width: 82%; align-self: flex-start; }
+  .msg.mine { align-self: flex-end; }
+  .msg .who { font-size: 12px; color: var(--dim); margin: 0 6px 3px; }
+  .msg.mine .who { text-align: right; }
+  .bubble { display: flex; align-items: center; gap: 10px; background: var(--panel); border-radius: 18px; padding: 8px 14px 8px 8px; min-width: 200px; }
+  .msg.mine .bubble { background: var(--mine); }
+  .play { width: 40px; height: 40px; border-radius: 50%; padding: 0; background: var(--accent); color: var(--accent-ink); font-size: 15px; flex: none; }
+  .bar { flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,.2); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: #fff; }
+  .dur { font-size: 12px; font-variant-numeric: tabular-nums; opacity: .8; }
+  .msg.new .bubble { box-shadow: 0 0 0 2px var(--accent); }
+
+  .chip.done { opacity: .6; }
+  .chip.cur { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+  #startGame { margin-left: auto; padding: 5px 12px; font-size: 13px; border-radius: 99px; background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+  #gameBar { border-top: 1px solid var(--line); background: var(--panel2); padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
+  #gameTop { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+  #stopGame { margin-left: auto; padding: 5px 10px; font-size: 12px; font-weight: 400; background: var(--panel); }
+  #chain { display: flex; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+  #gameText { font-size: 14px; }
+  #prevBox { background: var(--panel); }
+  .msg.chainCard { max-width: 100%; align-self: stretch; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
+  .chainCard h3 { margin: 0 0 6px; font-size: 15px; }
+  .chainCard .sum { color: var(--accent); font-weight: 700; margin-bottom: 12px; word-break: break-word; }
+  .chainCard .link { margin-top: 10px; }
+  .chainCard .link .who { margin: 0 0 4px; font-size: 13px; color: var(--text); text-align: left; }
+  .chainCard .bubble { background: var(--panel2); }
+
+  #dock { border-top: 1px solid var(--line); background: var(--panel); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  #flipOut {
+    min-height: 44px; margin: 8px 0 10px; padding: 10px 14px; border-radius: 12px;
+    background: var(--bg); border: 1px dashed var(--line);
+    font-size: 22px; font-weight: 700; color: var(--accent); word-break: break-word;
+  }
+  #flipOut:empty::before { content: "…тут появится то, что надо прочитать вслух"; font-size: 14px; font-weight: 400; color: var(--dim); }
+  .opts { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); margin-bottom: 12px; }
+  .opts input { width: auto; accent-color: var(--accent); }
+  #recRow { display: flex; gap: 8px; align-items: center; }
+  #recBtn { flex: 1; background: var(--rec); color: #fff; font-weight: 700; padding: 14px; }
+  #recBtn.on { background: #fff; color: var(--rec); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .7; } }
+  #draft { display: flex; gap: 8px; align-items: center; }
+  #draft .bubble { flex: 1; min-width: 0; background: var(--panel2); }
+  #status { font-size: 13px; color: var(--dim); min-height: 18px; margin-top: 8px; }
+  #status.err { color: var(--rec); }
+</style>
+</head>
+<body>
+
+<main id="lobby">
+  <h1 class="logo"><span>ПРИВЕТ</span></h1>
+  <p class="dim">Голосовые доходят только задом наперёд. Хочешь, чтобы тебя поняли — говори наоборот.</p>
+  <label for="name">Как тебя зовут</label>
+  <input id="name" maxlength="20" placeholder="Имя" autocomplete="off">
+  <button class="primary" id="create">Создать комнату</button>
+  <div class="or">или войти по коду</div>
+  <label for="joinCode">Код комнаты</label>
+  <div class="row">
+    <input id="joinCode" maxlength="8" placeholder="ABCD" autocomplete="off">
+    <button id="join">Войти</button>
+  </div>
+</main>
+
+<main id="room" class="hidden">
+  <header>
+    <div class="logo"><span>ПРИВЕТ</span></div>
+    <button id="code" title="Скопировать ссылку"></button>
+  </header>
+  <div id="players"></div>
+  <div id="feed">
+    <div id="empty">Пока тихо. Напиши фразу ниже, прочитай перевёртыш вслух и отправь — собеседник услышит её «нормально». Ну, почти.</div>
+  </div>
+  <div id="gameBar" class="hidden">
+    <div id="gameTop">☎ Испорченный телефон <button id="stopGame">Завершить</button></div>
+    <div id="chain"></div>
+    <div id="gameText"></div>
+    <div id="prevBox" class="bubble hidden">
+      <button class="play">▶</button>
+      <div class="bar"><i></i></div>
+      <span class="dur"></span>
+    </div>
+  </div>
+  <div id="dock">
+    <div id="tools">
+    <textarea id="flipIn" rows="1" placeholder="Что хочешь сказать? Например: привет, как дела"></textarea>
+    <div id="flipOut"></div>
+    <label class="opts"><input type="checkbox" id="phon" checked> писать как слышится (я → йа, ю → йу)</label>
+    <div id="recRow">
+      <button id="recBtn">● Записать</button>
+    </div>
+    <div id="draft" class="hidden">
+      <div class="bubble">
+        <button class="play" id="draftPlay">▶</button>
+        <div class="bar"><i></i></div>
+        <span class="dur"></span>
+      </div>
+      <button id="discard" title="Перезаписать">✕</button>
+      <button class="primary" id="sendBtn">Отправить</button>
+    </div>
+    </div>
+    <div id="status"></div>
+  </div>
+</main>
+
+<script src="peerjs.min.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const MAX_SEC = 20, RATE = 16000;
+
+// ---------- перевёртыш текста ----------
+const VOWELS = 'аеёиоуыэюя';
+const IOT = { 'е': 'йэ', 'ё': 'йо', 'ю': 'йу', 'я': 'йа' };
+
+function phonetic(s) {
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i], p = s[i - 1];
+    if (IOT[c] && (!p || p === ' ' || VOWELS.includes(p) || p === 'ъ' || p === 'ь')) out += IOT[c];
+    else if (c !== 'ъ') out += c;
+  }
+  return out;
+}
+
+function flip(text, usePhonetic) {
+  let s = text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+  if (usePhonetic) s = phonetic(s);
+  return [...s].reverse().join('');
+}
+
+function updateFlip() {
+  $('flipOut').textContent = flip($('flipIn').value, $('phon').checked);
+  const ta = $('flipIn');
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight + 2, 120) + 'px';
+}
+$('flipIn').addEventListener('input', updateFlip);
+$('phon').addEventListener('change', updateFlip);
+
+// ---------- аудио: запись, разворот, WAV ----------
+let audioCtx;
+const ctx = () => (audioCtx ||= new (window.AudioContext || window.webkitAudioContext)());
+
+async function toReversedWav(blob) {
+  const decoded = await ctx().decodeAudioData(await blob.arrayBuffer());
+  // сводим в моно 16 кГц
+  const len = Math.ceil(decoded.duration * RATE);
+  const off = new OfflineAudioContext(1, len, RATE);
+  const src = off.createBufferSource();
+  src.buffer = decoded;
+  src.connect(off.destination);
+  src.start();
+  let pcm = (await off.startRendering()).getChannelData(0);
+  // обрезаем тишину по краям
+  let a = 0, b = pcm.length - 1;
+  const TH = 0.02, PAD = RATE * 0.12;
+  while (a < b && Math.abs(pcm[a]) < TH) a++;
+  while (b > a && Math.abs(pcm[b]) < TH) b--;
+  if (b - a < RATE * 0.2) throw new Error('silence');
+  pcm = pcm.slice(Math.max(0, a - PAD), Math.min(pcm.length, b + PAD));
+  pcm.reverse(); // вся суть игры
+  const buf = new DataView(new ArrayBuffer(44 + pcm.length * 2));
+  const str = (o, s) => [...s].forEach((ch, i) => buf.setUint8(o + i, ch.charCodeAt(0)));
+  str(0, 'RIFF'); buf.setUint32(4, 36 + pcm.length * 2, true); str(8, 'WAVEfmt ');
+  buf.setUint32(16, 16, true); buf.setUint16(20, 1, true); buf.setUint16(22, 1, true);
+  buf.setUint32(24, RATE, true); buf.setUint32(28, RATE * 2, true);
+  buf.setUint16(32, 2, true); buf.setUint16(34, 16, true);
+  str(36, 'data'); buf.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) {
+    const v = Math.max(-1, Math.min(1, pcm[i]));
+    buf.setInt16(44 + i * 2, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+  }
+  return { wav: new Blob([buf], { type: 'audio/wav' }), dur: pcm.length / RATE };
+}
+
+// ---------- плеер (один на всю страницу) ----------
+const player = new Audio();
+let playingEl = null;
+const fmt = (s) => `0:${String(Math.round(s)).padStart(2, '0')}`;
+
+function stopPlayer() {
+  player.pause();
+  if (playingEl) {
+    playingEl.querySelector('.play').textContent = '▶';
+    playingEl.querySelector('.bar i').style.width = '0';
+    playingEl = null;
+  }
+}
+function toggle(el, url) {
+  const same = playingEl === el;
+  stopPlayer();
+  if (same) return;
+  playingEl = el;
+  el.querySelector('.play').textContent = '■';
+  el.closest('.msg')?.classList.remove('new');
+  player.src = url;
+  player.play().catch(() => stopPlayer());
+}
+player.addEventListener('timeupdate', () => {
+  if (playingEl && player.duration) {
+    playingEl.querySelector('.bar i').style.width = (player.currentTime / player.duration) * 100 + '%';
+  }
+});
+player.addEventListener('ended', stopPlayer);
+
+// ---------- состояние ----------
+const me = {
+  id: sessionStorage.tevirpId ||= Math.random().toString(36).slice(2, 12),
+  name: localStorage.tevirpName || '',
+};
+let room = '', es = null, draft = null, recorder = null, recTimer = null;
+let game = null, lastPlayers = [];
+const myTurn = () => !!game && game.turn === me.id;
+// записи приходят прямо в сообщениях — превращаем их в ссылки для плеера
+const urls = new Map();
+function audioUrl(id, buf) {
+  if (!urls.has(id)) urls.set(id, URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
+  return urls.get(id);
+}
+
+function status(text, isErr) {
+  $('status').textContent = text || '';
+  $('status').classList.toggle('err', !!isErr);
+}
+
+// ---------- лобби ----------
+$('name').value = me.name;
+const hashRoom = () => decodeURIComponent(location.hash.slice(1)).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+$('joinCode').value = hashRoom();
+
+function enter(code) {
+  const name = $('name').value.trim();
+  if (!name) { $('name').focus(); return; }
+  if (!code) { $('joinCode').focus(); return; }
+  me.name = localStorage.tevirpName = name;
+  room = code;
+  history.replaceState(null, '', '#' + room);
+  $('lobby').classList.add('hidden');
+  $('room').classList.remove('hidden');
+  $('code').textContent = room + ' ⧉';
+  updateFlip();
+  connect();
+}
+$('create').onclick = () => {
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  enter(Array.from({ length: 4 }, () => abc[Math.floor(Math.random() * abc.length)]).join(''));
+};
+$('join').onclick = () => enter($('joinCode').value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+$('joinCode').onkeydown = (e) => { if (e.key === 'Enter') $('join').click(); };
+$('name').onkeydown = (e) => { if (e.key === 'Enter') (hashRoom() ? $('join') : $('create')).click(); };
+
+$('code').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    status('Ссылка скопирована — отправь её другу');
+  } catch { status(location.href); }
+};
+
+// ---------- сеть ----------
+const seen = new Set();
+
+// Сервера нет: игроки соединяются напрямую (WebRTC, знакомит их PeerJS).
+// Кто первым занял адрес комнаты — тот хост: его вкладка хранит ленту и ведёт игру.
+// Если хост ушёл, оставшиеся переподключаются, и первый успевший становится новым хостом.
+const PEER_PREFIX = 'tevirp-room-';
+const MAX_PLAYERS = 6, MAX_MESSAGES = 40, HISTORY = 12, MAX_AUDIO = 3 * 1024 * 1024;
+const PING_MS = 3000, DEAD_MS = 12000;
+let peer = null, hostConn = null, host = null, retryTimer = null, pulseTimer = null, lastSeen = 0;
+const newId = () => Math.random().toString(36).slice(2, 12);
+
+function makeHost() {
+  const clients = new Map(); // id -> { name, conn }
+  const messages = [];
+  let g = null; // испорченный телефон: { order:[{id,name}], step, links:[{id,name,text,audio,dur}] }
+
+  const players = () => [...clients].map(([id, c]) => ({ id, name: c.name }));
+  const all = (t, d) => { for (const c of clients.values()) c.conn.send({ t, d }); };
+  // каждый видит своё: запись предыдущего звена получает только тот, чей ход
+  const view = (id) => {
+    if (!g) return null;
+    const turn = g.order[g.step].id, prev = g.links[g.step - 1];
+    return { order: g.order, step: g.step, turn, prev: id === turn && prev ? prev : null };
+  };
+  const sendGame = () => { for (const [id, c] of clients) c.conn.send({ t: 'game', d: view(id) }); };
+  const push = (m) => {
+    messages.push(m);
+    if (messages.length > MAX_MESSAGES) messages.shift();
+    all('message', m);
+  };
+  const finish = () => {
+    if (!g) return;
+    const links = g.links;
+    g = null;
+    if (links.length) push({ type: 'chain', id: newId(), links });
+    sendGame();
+  };
+  // выкидываем из очереди тех, кто ещё не ходил и вышел
+  const dropAbsent = () => {
+    if (!g) return;
+    g.order = g.order.filter((p, i) => i < g.step || clients.has(p.id));
+    if (g.step >= g.order.length) finish(); else sendGame();
+  };
+
+  function leave(conn) {
+    const id = conn.pid;
+    if (!id || clients.get(id)?.conn !== conn) return;
+    clients.delete(id);
+    all('players', players());
+    setTimeout(() => { if (!clients.has(id)) dropAbsent(); }, 8000);
+  }
+
+  function onData(conn, m) {
+    if (!m || typeof m !== 'object') return;
+    if (m.t === 'join') {
+      const id = String(m.id).slice(0, 24);
+      const name = String(m.name || '').trim().slice(0, 20) || 'Аноним';
+      if (!clients.has(id) && clients.size >= MAX_PLAYERS) return conn.send({ t: 'full' });
+      conn.pid = id;
+      clients.set(id, { name, conn, seen: Date.now() });
+      conn.send({ t: 'hello', d: messages.slice(-HISTORY) });
+      conn.send({ t: 'game', d: view(id) });
+      return all('players', players());
+    }
+    const id = conn.pid, c = clients.get(id);
+    if (!c || c.conn !== conn) return;
+    c.seen = Date.now();
+    if (m.t === 'start') {
+      if (g || clients.size < 2) return;
+      const rest = players().filter((p) => p.id !== id);
+      for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rest[i], rest[j]] = [rest[j], rest[i]];
+      }
+      g = { order: [{ id, name: c.name }, ...rest], step: 0, links: [] };
+      return sendGame();
+    }
+    if (m.t === 'stop') return finish();
+    if (m.t === 'send') {
+      if (g && g.order[g.step].id !== id) return;
+      const audio = m.audio;
+      if (!audio || !(audio.byteLength > 44) || audio.byteLength > MAX_AUDIO) return;
+      const dur = Math.min(60, Math.max(0, Number(m.dur) || 0));
+      if (g) {
+        g.links.push({ id: newId(), name: c.name, text: String(m.text || '').slice(0, 200), audio, dur });
+        g.step++;
+        if (g.step >= g.order.length) finish(); else dropAbsent();
+      } else {
+        push({ id: newId(), from: id, name: c.name, dur, audio });
+      }
+    }
+  }
+  // закрытую вкладку WebRTC замечает не сразу — следим за пульсом сами
+  const pulse = setInterval(() => {
+    for (const c of [...clients.values()]) {
+      if (c.conn !== loop && Date.now() - c.seen > DEAD_MS) leave(c.conn);
+    }
+    all('ping');
+  }, PING_MS);
+  return { onData, leave, stop: () => clearInterval(pulse) };
+}
+
+// хост сам себе клиент — через эту «петлю»
+const loop = { send: (m) => queueMicrotask(() => onHostMsg(m)) };
+
+function onHostMsg(m) {
+  const { t, d } = m || {};
+  if (t === 'hello') {
+    status(host ? 'Комнату держишь ты: она жива, пока открыта эта вкладка' : '');
+    d.forEach((x) => addMessage(x, false));
+  } else if (t === 'players') renderPlayers(d);
+  else if (t === 'message') addMessage(d, true);
+  else if (t === 'game') { game = d; renderGame(); }
+  else if (t === 'full') status('Комната заполнена', true);
+}
+
+function toHost(m) {
+  if (host) host.onData(loop, m);
+  else if (hostConn?.open) hostConn.send(m);
+  else { status('Нет связи с комнатой', true); return false; }
+  return true;
+}
+
+function connect() {
+  clearTimeout(retryTimer);
+  clearInterval(pulseTimer);
+  peer?.destroy();
+  host?.stop();
+  host = null; hostConn = null;
+  status('Подключаюсь…');
+  const retry = (ms) => { clearTimeout(retryTimer); retryTimer = setTimeout(connect, ms); };
+  const join = () => toHost({ t: 'join', id: me.id, name: me.name });
+
+  // пробуем занять адрес комнаты: получилось — мы хост
+  const hp = peer = new Peer(PEER_PREFIX + room);
+  hp.on('open', () => {
+    if (hp !== peer || host) return;
+    host = makeHost();
+    hp.on('connection', (conn) => {
+      conn.on('data', (m) => host?.onData(conn, m));
+      conn.on('close', () => host?.leave(conn));
+      conn.on('error', () => host?.leave(conn));
+    });
+    join();
+  });
+  hp.on('disconnected', () => { if (hp === peer && !hp.destroyed) hp.reconnect(); });
+  hp.on('error', (err) => {
+    if (hp !== peer) return;
+    if (err.type !== 'unavailable-id') {
+      if (!host) { status('Нет связи. Пробую ещё…', true); retry(3000); }
+      return;
+    }
+    // адрес занят — хост уже есть, идём к нему гостем
+    hp.destroy();
+    const gp = peer = new Peer();
+    gp.on('open', () => {
+      if (gp !== peer) return;
+      const conn = gp.connect(PEER_PREFIX + room, { reliable: true });
+      const giveUp = setTimeout(() => {
+        if (gp === peer && !hostConn) { status('Не получается соединиться. Пробую ещё…', true); retry(500); }
+      }, 12000);
+      const lost = () => {
+        if (gp !== peer || !hostConn) return;
+        clearInterval(pulseTimer);
+        hostConn = null; game = null; renderGame();
+        status('Хост вышел — переподключаюсь…', true);
+        retry(500 + Math.random() * 2500); // кто первый успел, тот новый хост
+      };
+      conn.on('open', () => {
+        clearTimeout(giveUp);
+        if (gp !== peer) return;
+        hostConn = conn; lastSeen = Date.now(); join();
+        pulseTimer = setInterval(() => {
+          if (Date.now() - lastSeen > DEAD_MS) return lost();
+          if (conn.open) conn.send({ t: 'ping' });
+        }, PING_MS);
+      });
+      conn.on('data', (m) => { if (gp === peer) { lastSeen = Date.now(); onHostMsg(m); } });
+      conn.on('close', lost);
+    });
+    gp.on('disconnected', () => { if (gp === peer && !gp.destroyed) gp.reconnect(); });
+    gp.on('error', () => { if (gp === peer && !hostConn) retry(2000); });
+  });
+}
+addEventListener('pagehide', () => peer?.destroy());
+
+function renderPlayers(list) {
+  lastPlayers = list;
+  const box = $('players');
+  box.textContent = '';
+  for (const p of list) {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (p.id === me.id ? ' me' : '');
+    chip.textContent = p.name + (p.id === me.id ? ' (ты)' : '');
+    box.append(chip);
+  }
+  if (list.length < 2) box.append('— ждём второго, нажми на код, чтобы скопировать ссылку');
+  else if (!game) {
+    const b = document.createElement('button');
+    b.id = 'startGame';
+    b.textContent = '☎ Испорченный телефон';
+    b.title = 'Фраза идёт по цепочке: каждый слышит только предыдущего';
+    b.onclick = () => toHost({ t: 'start' });
+    box.append(b);
+  }
+}
+
+// ---------- испорченный телефон ----------
+function renderGame() {
+  const mine = myTurn();
+  $('gameBar').classList.toggle('hidden', !game);
+  $('tools').classList.toggle('hidden', !!game && !mine);
+  $('flipIn').placeholder = !game ? 'Что хочешь сказать? Например: привет, как дела'
+    : game.step === 0 ? 'Загадай фразу' : 'Что ты услышал?';
+  renderPlayers(lastPlayers);
+  updateFlip(); // поле могло быть скрыто — пересчитать высоту
+  if (!game) return;
+  if (!mine) { showDraft(null); status(''); }
+  const chain = $('chain');
+  chain.textContent = '';
+  game.order.forEach((p, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (i < game.step ? ' done' : i === game.step ? ' cur' : '');
+    chip.textContent = (i < game.step ? '✓ ' : '') + p.name;
+    chain.append(chip);
+    if (i < game.order.length - 1) chain.append('→');
+  });
+  $('gameText').textContent = !mine
+    ? `Ходит ${game.order[game.step].name}. Остальные ждут и не подсказывают.`
+    : game.step === 0
+      ? 'Ты начинаешь: загадай фразу, напиши её ниже и скажи наоборот.'
+      : 'Твой ход: послушай, что до тебя дошло, напиши, что услышал, и передай дальше — тоже наоборот.';
+  const prev = $('prevBox');
+  prev.classList.toggle('hidden', !game.prev);
+  if (game.prev) {
+    prev.querySelector('.dur').textContent = fmt(game.prev.dur);
+    const url = audioUrl(game.prev.id, game.prev.audio);
+    prev.querySelector('.play').onclick = () => toggle(prev, url);
+  }
+}
+$('stopGame').onclick = () => toHost({ t: 'stop' });
+
+function bubbleEl(url, dur) {
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.innerHTML = '<button class="play">▶</button><div class="bar"><i></i></div><span class="dur"></span>';
+  b.querySelector('.dur').textContent = fmt(dur);
+  b.querySelector('.play').onclick = () => toggle(b, url);
+  return b;
+}
+
+function chainCard(m) {
+  const el = document.createElement('div');
+  el.className = 'msg chainCard';
+  const add = (tag, cls, text, parent = el) => {
+    const n = document.createElement(tag);
+    n.className = cls;
+    n.textContent = text;
+    parent.append(n);
+    return n;
+  };
+  const q = (t) => (t ? `«${t}»` : '—');
+  add('h3', '', '☎ Испорченный телефон');
+  add('div', 'sum', `${q(m.links[0].text)} → ${q(m.links.at(-1).text)}`);
+  m.links.forEach((l, i) => {
+    const link = add('div', 'link', '');
+    add('div', 'who', `${i + 1}. ${l.name}: ${q(l.text)}`, link);
+    link.append(bubbleEl(audioUrl(l.id, l.audio), l.dur));
+  });
+  return el;
+}
+
+function addMessage(m, fresh) {
+  if (seen.has(m.id)) return;
+  seen.add(m.id);
+  $('empty')?.remove();
+  let el;
+  if (m.type === 'chain') {
+    el = chainCard(m);
+  } else {
+    const mine = m.from === me.id;
+    el = document.createElement('div');
+    el.className = 'msg' + (mine ? ' mine' : '') + (fresh && !mine ? ' new' : '');
+    const who = document.createElement('div');
+    who.className = 'who';
+    who.textContent = mine ? 'ты' : m.name;
+    el.append(who, bubbleEl(audioUrl(m.id, m.audio), m.dur));
+  }
+  $('feed').append(el);
+  $('feed').scrollTop = $('feed').scrollHeight;
+}
+
+// ---------- запись ----------
+function showDraft(d) {
+  if (draft) URL.revokeObjectURL(draft.url);
+  draft = d;
+  stopPlayer();
+  $('draft').classList.toggle('hidden', !d);
+  $('recRow').classList.toggle('hidden', !!d);
+  if (d) $('draft').querySelector('.dur').textContent = fmt(d.dur);
+}
+
+$('recBtn').onclick = async () => {
+  if (recorder) { recorder.stop(); return; }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return status('Микрофон доступен только по HTTPS или на localhost', true);
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    return status('Нет доступа к микрофону — разреши его в браузере', true);
+  }
+  stopPlayer();
+  const chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => chunks.push(e.data);
+  recorder.onstop = async () => {
+    clearInterval(recTimer);
+    stream.getTracks().forEach((t) => t.stop());
+    const type = recorder.mimeType;
+    recorder = null;
+    $('recBtn').classList.remove('on');
+    $('recBtn').textContent = '● Записать';
+    status('Разворачиваю…');
+    try {
+      const { wav, dur } = await toReversedWav(new Blob(chunks, { type }));
+      showDraft({ wav, dur, url: URL.createObjectURL(wav) });
+      status('Так тебя услышит собеседник. Послушай и отправляй.');
+    } catch (err) {
+      status(err.message === 'silence' ? 'Ничего не слышно — попробуй ещё раз' : 'Не получилось обработать запись', true);
+    }
+  };
+  recorder.start();
+  const t0 = Date.now();
+  $('recBtn').classList.add('on');
+  const tick = () => {
+    const s = (Date.now() - t0) / 1000;
+    $('recBtn').textContent = `■ Стоп · ${fmt(s)}`;
+    if (s >= MAX_SEC) recorder?.stop();
+  };
+  tick();
+  recTimer = setInterval(tick, 250);
+  status('Читай перевёртыш вслух');
+};
+
+$('draftPlay').onclick = () => toggle($('draft').querySelector('.bubble'), draft.url);
+$('discard').onclick = () => { showDraft(null); status(''); };
+$('sendBtn').onclick = async () => {
+  if (!draft) return;
+  const text = $('flipIn').value.trim().slice(0, 200);
+  if (myTurn() && !text) {
+    $('flipIn').focus();
+    return status(game.step === 0 ? 'Сначала напиши загаданную фразу — в конце сравним' : 'Сначала напиши, что ты услышал — в конце сравним', true);
+  }
+  const msg = { t: 'send', dur: draft.dur, audio: await draft.wav.arrayBuffer() };
+  if (myTurn()) msg.text = text;
+  if (!toHost(msg)) return;
+  showDraft(null);
+  status('');
+  $('flipIn').value = '';
+  updateFlip();
+};
+</script>
+</body>
+</html>
