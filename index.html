@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ТЕВИРП — голосовые задом наперёд</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#14121c">
 <style>
   :root {
     --bg: #14121c; --panel: #1f1c2b; --panel2: #2a2639; --line: #3a3550;
@@ -33,7 +36,7 @@
 
   /* лобби */
   #lobby { width: 100%; max-width: 420px; padding: 24px 16px; align-self: center; }
-  #lobby h1 { font-size: 44px; margin: 0 0 4px; }
+  #lobby h1 { font-size: 44px; margin: 8px 0 4px; }
   #lobby p { margin: 0 0 24px; }
   #lobby label { display: block; font-size: 13px; color: var(--dim); margin: 16px 0 6px; }
   #lobby .row { display: flex; gap: 8px; }
@@ -103,6 +106,7 @@
 <body>
 
 <main id="lobby">
+  <img src="icon.svg" alt="" width="72" height="72">
   <h1 class="logo"><span>ПРИВЕТ</span></h1>
   <p class="dim">Голосовые доходят только задом наперёд. Хочешь, чтобы тебя поняли — говори наоборот.</p>
   <label for="name">Как тебя зовут</label>
@@ -118,6 +122,7 @@
 
 <main id="room" class="hidden">
   <header>
+    <img src="icon.svg" alt="" width="28" height="28">
     <div class="logo"><span>ПРИВЕТ</span></div>
     <button id="code" title="Скопировать ссылку"></button>
   </header>
@@ -161,6 +166,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const MAX_SEC = 20, RATE = 16000;
+const HIT_URL = ''; // сборщик заходов, см. analytics/
 
 // ---------- перевёртыш текста ----------
 const VOWELS = 'аеёиоуыэюя';
@@ -292,6 +298,9 @@ function enter(code) {
   $('lobby').classList.add('hidden');
   $('room').classList.remove('hidden');
   $('code').textContent = room + ' ⧉';
+  if (HIT_URL) {
+    fetch(HIT_URL, { method: 'POST', body: JSON.stringify({ name, room, id: me.id }), keepalive: true }).catch(() => {});
+  }
   updateFlip();
   connect();
 }

@@ -6,7 +6,12 @@ import path from 'node:path';
 
 const PORT = Number(process.argv[2] || 8770);
 const DIR = path.dirname(fileURLToPath(import.meta.url));
-const FILES = { '/': ['index.html', 'text/html; charset=utf-8'], '/peerjs.min.js': ['peerjs.min.js', 'text/javascript'] };
+const FILES = {
+  '/': ['index.html', 'text/html; charset=utf-8'],
+  '/peerjs.min.js': ['peerjs.min.js', 'text/javascript'],
+  '/icon.svg': ['icon.svg', 'image/svg+xml'],
+  '/icon-180.png': ['icon-180.png', 'image/png'],
+};
 
 http.createServer(async (req, res) => {
   const f = FILES[new URL(req.url, 'http://x').pathname];
